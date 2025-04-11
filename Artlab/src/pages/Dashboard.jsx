@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { Line } from "react-chartjs-2";
@@ -89,7 +89,7 @@ const StatCard = ({ title, value, color, trend, dateRange }) => (
         </div>
       </div>
       <p className={`mt-3 text-3xl font-semibold ${color.text}`}>
-        {title === "Revenue" ? `$${value?.toLocaleString() || 0}` : value || 0}
+        {title === "Revenue" ? `₹${value?.toLocaleString() || 0}` : value || 0}
       </p>
       {trend && (
         <div
@@ -149,9 +149,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const isMounted = useRef(true);
   const [stats, setStats] = useState(dummyStats);
-  const [recentActivity, setRecentActivity] = useState(
-    Array.isArray(dummyActivity) ? dummyActivity : []
-  );
+  const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dateRange, setDateRange] = useState("week");
@@ -205,8 +203,10 @@ const Dashboard = () => {
           });
         }
 
-        if (Array.isArray(activityRes.data) && activityRes.data.length > 0) {
-          setRecentActivity(activityRes.data);
+        if (Array.isArray(activityRes.data)) {
+          setRecentActivity(
+            activityRes.data.length > 0 ? activityRes.data : dummyActivity
+          );
         }
 
         if (salesRes.data?.labels && Array.isArray(salesRes.data.values)) {
@@ -234,6 +234,7 @@ const Dashboard = () => {
         console.error("Dashboard data fetch error:", err);
         setError(err.message);
         setIsUsingDummyData(true);
+        setRecentActivity(dummyActivity);
       } finally {
         if (isMounted.current) {
           setLoading(false);
@@ -297,10 +298,10 @@ const Dashboard = () => {
           </h3>
           <p className="text-sm text-gray-500">
             {activity.type === "sale" &&
-              `Sold for $${activity.price?.toLocaleString() || 0}`}
+              `Sold for ₹${activity.price?.toLocaleString() || 0}`}
             {activity.type === "exhibition" && "New exhibition opened"}
             {activity.type === "new_artwork" &&
-              `New artwork added - $${activity.price?.toLocaleString() || 0}`}
+              `New artwork added - ₹${activity.price?.toLocaleString() || 0}`}
           </p>
           <p className="text-xs text-gray-400 mt-1">
             {new Date(activity.date).toLocaleDateString("en-US", {
@@ -336,7 +337,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen font-mono bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {isUsingDummyData && (
           <div className="mb-4 bg-yellow-50 border-l-4 border-yellow-400 p-4">
@@ -449,7 +450,7 @@ const Dashboard = () => {
               </h2>
             </div>
             <div className="divide-y divide-gray-200 max-h-[400px] overflow-y-auto">
-              {Array.isArray(recentActivity) && recentActivity.length > 0 ? (
+              {recentActivity.length > 0 ? (
                 recentActivity.map(renderActivityItem)
               ) : (
                 <div className="p-6 text-center text-gray-500">

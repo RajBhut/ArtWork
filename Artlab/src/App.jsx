@@ -1,9 +1,11 @@
 import { Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
 import Dashboard from "./pages/Dashboard";
 import Artworks from "./pages/Artworks";
 import Artists from "./pages/Artists";
 import Exhibitions from "./pages/Exhibitions";
+import ExhibitionDetails from "./pages/ExhibitionDetails";
 import Sales from "./pages/Sales";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -15,9 +17,9 @@ function App() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 flex-grow">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -54,6 +56,14 @@ function App() {
             }
           />
           <Route
+            path="/exhibitions/:id"
+            element={
+              <ProtectedRoute isAuthenticated={isAuthenticated}>
+                <ExhibitionDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/sales"
             element={
               <ProtectedRoute isAuthenticated={isAuthenticated}>
@@ -64,6 +74,7 @@ function App() {
           <Route path="/purchase/:id" element={<Purchase />} />
         </Routes>
       </main>
+      <Footer />
     </div>
   );
 }

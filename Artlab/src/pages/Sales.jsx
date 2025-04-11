@@ -111,7 +111,7 @@ const Sales = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container font-mono mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Sales History</h1>
         <button
@@ -150,6 +150,7 @@ const Sales = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
+              {console.log(sales)}
               {sales.map((sale) => (
                 <tr key={sale._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -157,16 +158,27 @@ const Sales = () => {
                       <div className="flex-shrink-0 h-10 w-10">
                         <img
                           className="h-10 w-10 rounded-full object-cover"
-                          src={sale.artwork.imageUrl}
-                          alt={sale.artwork.title}
+                          src={
+                            sale.artwork?.imageUrl ||
+                            "/images/fallback-image.jpg"
+                          }
+                          alt={sale.artwork?.title || "Unknown Artwork"}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "/images/fallback-image.jpg";
+                          }}
                         />
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {sale.artwork.title}
+                          {sale.artwork?.title || "Unknown Artwork"}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {sale.artwork.medium} • {sale.artwork.year}
+                          {sale.artwork
+                            ? `${sale.artwork.medium || "Unknown"} • ${
+                                sale.artwork.year || "N/A"
+                              }`
+                            : "No artwork details"}
                         </div>
                       </div>
                     </div>

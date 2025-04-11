@@ -80,14 +80,14 @@ const Artists = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen  flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen font-mono bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Artists</h1>
@@ -122,16 +122,18 @@ const Artists = () => {
                     {artist.specialization}
                   </p>
                   <p className="text-sm text-gray-500">
-                    <span className="font-medium">Email:</span> {artist.email}
+                    <span className="font-medium">Email:</span>{" "}
+                    {artist.contact.email}
                   </p>
                   <p className="text-sm text-gray-500">
-                    <span className="font-medium">Phone:</span> {artist.phone}
+                    <span className="font-medium">Phone:</span>{" "}
+                    {artist.contact.phone}
                   </p>
                   {artist.website && (
                     <p className="text-sm text-gray-500">
                       <span className="font-medium">Website:</span>{" "}
                       <a
-                        href={artist.website}
+                        href={artist.contact.website}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-800"

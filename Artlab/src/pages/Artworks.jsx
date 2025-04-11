@@ -145,7 +145,7 @@ const Artworks = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="font-mono min-h-screen  bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Artworks</h1>
@@ -237,22 +237,27 @@ const Artworks = () => {
                     </div>
                   )}
                 </div>
-                <div className="mt-6 flex space-x-3">
-                  <Link
-                    to={`/purchase/${artwork._id}`}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-                  >
-                    Purchase
-                  </Link>
-                  <button
-                    onClick={() => handleEdit(artwork)}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    Edit
-                  </button>
+                <div className="mt-6 bg-gray-100 py-2 px-2 rounded-xl  flex   justify-evenly">
+                  {artwork.status !== "sold" && (
+                    <>
+                      <Link
+                        to={`/purchase/${artwork._id}`}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                      >
+                        Purchase
+                      </Link>
+
+                      <button
+                        onClick={() => handleEdit(artwork)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        Edit
+                      </button>
+                    </>
+                  )}
                   <button
                     onClick={() => handleDelete(artwork._id)}
-                    className="text-red-600 hover:text-red-800"
+                    className="text-white bg-red-600 hover:bg-red-800 rounded py-2 px-3"
                   >
                     Delete
                   </button>
@@ -262,7 +267,6 @@ const Artworks = () => {
           ))}
         </div>
 
-        {/* Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
             <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">

@@ -1,79 +1,86 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 const Exhibitions = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [exhibitions, setExhibitions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingExhibition, setEditingExhibition] = useState(null);
-  const [formData, setFormData] = useState({
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newExhibition, setNewExhibition] = useState({
     title: "",
     description: "",
     startDate: "",
     endDate: "",
-    location: "",
-    status: "upcoming",
+    location: {
+      venue: "",
+      address: "",
+      city: "",
+      country: "",
+    },
+    imageUrl: "",
   });
 
   useEffect(() => {
+    const fetchExhibitions = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get("/exhibitions");
+        setExhibitions(response.data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchExhibitions();
   }, []);
 
-  const fetchExhibitions = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get("/exhibitions");
-      setExhibitions(response.data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e) => {
+  const handleAddExhibition = async (e) => {
     e.preventDefault();
     try {
-      if (editingExhibition) {
-        await api.put(`/exhibitions/${editingExhibition.id}`, formData);
-      } else {
-        await api.post("/exhibitions", formData);
-      }
-      setIsModalOpen(false);
-      setEditingExhibition(null);
-      setFormData({
+      const response = await api.post("/exhibitions", newExhibition);
+      setExhibitions([...exhibitions, response.data]);
+      setShowAddModal(false);
+      setNewExhibition({
         title: "",
         description: "",
         startDate: "",
         endDate: "",
-        location: "",
-        status: "upcoming",
+        location: {
+          venue: "",
+          address: "",
+          city: "",
+          country: "",
+        },
+        imageUrl: "",
       });
-      fetchExhibitions();
     } catch (err) {
       setError(err.message);
     }
   };
 
-  const handleEdit = (exhibition) => {
-    setEditingExhibition(exhibition);
-    setFormData(exhibition);
-    setIsModalOpen(true);
-  };
+  const filteredExhibitions = exhibitions.filter((exhibition) => {
+    const matchesSearch = exhibition.title
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      filterStatus === "all" ||
+      (filterStatus === "upcoming" &&
+        new Date(exhibition.startDate) > new Date()) ||
+      (filterStatus === "current" &&
+        new Date(exhibition.startDate) <= new Date() &&
+        new Date(exhibition.endDate) >= new Date()) ||
+      (filterStatus === "past" && new Date(exhibition.endDate) < new Date());
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this exhibition?")) {
-      try {
-        await api.delete(`/exhibitions/${id}`);
-        fetchExhibitions();
-      } catch (err) {
-        setError(err.message);
-      }
-    }
-  };
+    return matchesSearch && matchesStatus;
+  });
 
   if (loading) {
     return (
@@ -83,106 +90,141 @@ const Exhibitions = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-red-600">Error: {error}</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen font-mono bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Exhibitions</h1>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Add Exhibition
-          </button>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Exhibitions</h1>
+            <p className="mt-2 text-gray-600">
+              Browse and manage art exhibitions
+            </p>
+          </div>
+          {user?.role === "admin" && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="mt-4 md:mt-0 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Add New Exhibition
+            </button>
+          )}
         </div>
 
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
-            <p className="text-red-700">{error}</p>
-          </div>
-        )}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+          <input
+            type="text"
+            placeholder="Search exhibitions..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className=" py-2 px-2 w-full focus:ring-blue-200 focus:border-blue-500"
+          />
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">All Exhibitions</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="current">Current</option>
+            <option value="past">Past</option>
+          </select>
+        </div>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {exhibitions.map((exhibition) => (
+        {/* Exhibitions Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredExhibitions.map((exhibition) => (
             <div
-              key={exhibition._id}
-              className="bg-white rounded-lg shadow-lg overflow-hidden"
+              key={exhibition._id || exhibition.id}
+              className="bg-white shadow-lg rounded-lg overflow-hidden hover:shadow-xl transition-shadow cursor-pointer"
+              onClick={() =>
+                navigate(`/exhibitions/${exhibition._id || exhibition.id}`)
+              }
             >
-              <div className="p-6">
-                <h3 className="text-xl font-semibold text-gray-900">
-                  {exhibition.title}
-                </h3>
-                <p className="mt-2 text-gray-600">{exhibition.description}</p>
-                <div className="mt-4 space-y-2">
-                  <p className="text-sm text-gray-500">
-                    <span className="font-medium">Location:</span>{" "}
-                    {exhibition.location.address}
-                    {exhibition.location.city}
-                    {"\n"}
-                    {exhibition.location.country}
-                    {"\n"}
-                    {exhibition.location.venue}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    <span className="font-medium">Start Date:</span>{" "}
-                    {new Date(exhibition.startDate).toLocaleDateString()}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    <span className="font-medium">End Date:</span>{" "}
-                    {new Date(exhibition.endDate).toLocaleDateString()}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    <span className="font-medium">Status:</span>{" "}
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        exhibition.status === "active"
-                          ? "bg-green-100 text-green-800"
-                          : exhibition.status === "upcoming"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {exhibition.status}
-                    </span>
-                  </p>
+              <div className="relative h-48">
+                <img
+                  src={exhibition.imageUrl}
+                  alt={exhibition.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = "/images/fallback-image.jpg";
+                  }}
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4">
+                  <h3 className="text-xl font-semibold text-white">
+                    {exhibition.title}
+                  </h3>
                 </div>
-                <div className="mt-6 flex space-x-3">
-                  <button
-                    onClick={() => handleEdit(exhibition)}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(exhibition._id)}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    Delete
-                  </button>
+              </div>
+              <div className="p-4">
+                <p className="text-gray-600 line-clamp-2">
+                  {exhibition.description}
+                </p>
+                <div className="mt-4 flex items-center justify-between">
+                  <span className="text-sm text-gray-500">
+                    {new Date(exhibition.startDate).toLocaleDateString()} -{" "}
+                    {new Date(exhibition.endDate).toLocaleDateString()}
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    {typeof exhibition.location === "object"
+                      ? `${exhibition.location.venue}, ${exhibition.location.city}`
+                      : exhibition.location}
+                  </span>
                 </div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Modal */}
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
-            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-              <div className="mt-3">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">
-                  {editingExhibition ? "Edit Exhibition" : "Add Exhibition"}
-                </h3>
-                <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Add Exhibition Modal */}
+        {showAddModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg max-w-2xl w-full">
+              <div className="p-6">
+                <div className="flex justify-between items-start">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Add New Exhibition
+                  </h2>
+                  <button
+                    onClick={() => setShowAddModal(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <svg
+                      className="h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <form onSubmit={handleAddExhibition} className="mt-6 space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
                       Title
                     </label>
                     <input
                       type="text"
-                      value={formData.title}
+                      value={newExhibition.title}
                       onChange={(e) =>
-                        setFormData({ ...formData, title: e.target.value })
+                        setNewExhibition({
+                          ...newExhibition,
+                          title: e.target.value,
+                        })
                       }
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       required
@@ -193,43 +235,29 @@ const Exhibitions = () => {
                       Description
                     </label>
                     <textarea
-                      value={formData.description}
+                      value={newExhibition.description}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
+                        setNewExhibition({
+                          ...newExhibition,
                           description: e.target.value,
                         })
                       }
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      rows="3"
+                      rows={3}
                       required
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Location
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.location}
-                      onChange={(e) =>
-                        setFormData({ ...formData, location: e.target.value })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         Start Date
                       </label>
                       <input
                         type="date"
-                        value={formData.startDate}
+                        value={newExhibition.startDate}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
+                          setNewExhibition({
+                            ...newExhibition,
                             startDate: e.target.value,
                           })
                         }
@@ -243,9 +271,12 @@ const Exhibitions = () => {
                       </label>
                       <input
                         type="date"
-                        value={formData.endDate}
+                        value={newExhibition.endDate}
                         onChange={(e) =>
-                          setFormData({ ...formData, endDate: e.target.value })
+                          setNewExhibition({
+                            ...newExhibition,
+                            endDate: e.target.value,
+                          })
                         }
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                         required
@@ -254,44 +285,116 @@ const Exhibitions = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Status
+                      Venue
                     </label>
-                    <select
-                      value={formData.status}
+                    <input
+                      type="text"
+                      value={newExhibition.location.venue}
                       onChange={(e) =>
-                        setFormData({ ...formData, status: e.target.value })
+                        setNewExhibition({
+                          ...newExhibition,
+                          location: {
+                            ...newExhibition.location,
+                            venue: e.target.value,
+                          },
+                        })
                       }
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    >
-                      <option value="upcoming">Upcoming</option>
-                      <option value="active">Active</option>
-                      <option value="completed">Completed</option>
-                    </select>
+                      required
+                    />
                   </div>
-                  <div className="flex justify-end space-x-3 mt-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Address
+                    </label>
+                    <input
+                      type="text"
+                      value={newExhibition.location.address}
+                      onChange={(e) =>
+                        setNewExhibition({
+                          ...newExhibition,
+                          location: {
+                            ...newExhibition.location,
+                            address: e.target.value,
+                          },
+                        })
+                      }
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        City
+                      </label>
+                      <input
+                        type="text"
+                        value={newExhibition.location.city}
+                        onChange={(e) =>
+                          setNewExhibition({
+                            ...newExhibition,
+                            location: {
+                              ...newExhibition.location,
+                              city: e.target.value,
+                            },
+                          })
+                        }
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Country
+                      </label>
+                      <input
+                        type="text"
+                        value={newExhibition.location.country}
+                        onChange={(e) =>
+                          setNewExhibition({
+                            ...newExhibition,
+                            location: {
+                              ...newExhibition.location,
+                              country: e.target.value,
+                            },
+                          })
+                        }
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Image URL
+                    </label>
+                    <input
+                      type="url"
+                      value={newExhibition.imageUrl}
+                      onChange={(e) =>
+                        setNewExhibition({
+                          ...newExhibition,
+                          imageUrl: e.target.value,
+                        })
+                      }
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-4">
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsModalOpen(false);
-                        setEditingExhibition(null);
-                        setFormData({
-                          title: "",
-                          description: "",
-                          startDate: "",
-                          endDate: "",
-                          location: "",
-                          status: "upcoming",
-                        });
-                      }}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                      onClick={() => setShowAddModal(false)}
+                      className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                      className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
                     >
-                      {editingExhibition ? "Update" : "Create"}
+                      Add Exhibition
                     </button>
                   </div>
                 </form>
