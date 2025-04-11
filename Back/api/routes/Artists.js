@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../../config/auth.js");
 const Artist = require("../../model/Artist.js");
-
+const bcrypt = require("bcryptjs");
 // @route   GET api/artists
 // @desc    Get all artists
 // @access  Public
@@ -20,16 +20,23 @@ router.get("/", async (req, res) => {
 // @access  Private
 router.post("/", auth, async (req, res) => {
   try {
-    const { name, bio, imageUrl, contact } = req.body;
+    const { name, bio, imageUrl, password, email, phone, website } = req.body;
+    console.log(req.body);
     const artist = new Artist({
       name,
       bio,
+      contact: { email, phone, website },
       imageUrl,
-      contact,
+
+      password,
     });
+    const salt = await bcrypt.genSalt(10);
+    artist.password = await bcrypt.hash(password, salt);
+
     await artist.save();
     res.json(artist);
   } catch (err) {
+    console.log(err);
     res.status(500).send("Server Error");
   }
 });

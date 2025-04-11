@@ -15,9 +15,11 @@ const Artworks = () => {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    artistId: "",
-    exhibitionId: "",
     price: "",
+    image: null,
+    artist: "",
+    exhibition: "",
+    category: "",
     medium: "",
     dimensions: {
       height: "",
@@ -25,8 +27,6 @@ const Artworks = () => {
       unit: "cm",
     },
     year: "",
-    imageUrl: "",
-    category: "",
     status: "available",
     tags: [],
   });
@@ -55,35 +55,117 @@ const Artworks = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    // Validate required fields
+    if (
+      !formData.title ||
+      !formData.description ||
+      !formData.price ||
+      !formData.category ||
+      !formData.artist
+    ) {
+      setError(
+        "Please fill in all required fields (Title, Description, Price, Category, and Artist)"
+      );
+      setLoading(false);
+      return;
+    }
+
     try {
-      if (editingArtwork) {
-        await api.put(`/artworks/${editingArtwork._id}`, formData);
-      } else {
-        await api.post("/artworks", formData);
+      const artworkData = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        price: formData.price,
+        category: formData.category.trim(),
+        artist: formData.artist,
+        medium: formData.medium.trim(),
+        year: formData.year,
+        status: formData.status,
+        dimensions: formData.dimensions,
+        tags: formData.tags,
+        exhibition: formData.exhibition || undefined,
+      };
+
+      // If artwork is being added to an exhibition, set status to "exhibition"
+      if (artworkData.exhibition) {
+        artworkData.status = "exhibition";
       }
-      setIsModalOpen(false);
-      setEditingArtwork(null);
-      setFormData({
-        title: "",
-        description: "",
-        artistId: "",
-        exhibitionId: "",
-        price: "",
-        medium: "",
-        dimensions: {
-          height: "",
-          width: "",
-          unit: "cm",
-        },
-        year: "",
-        imageUrl: "",
-        category: "",
-        status: "available",
-        tags: [],
-      });
-      fetchData();
+
+      // If there's an image, use FormData
+      if (formData.image) {
+        const formDataToSend = new FormData();
+        Object.keys(artworkData).forEach((key) => {
+          if (artworkData[key] !== undefined) {
+            formDataToSend.append(key, artworkData[key]);
+          }
+        });
+        formDataToSend.append("image", formData.image);
+
+        const response = await api.post("/artworks", formDataToSend, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+
+        if (response.data) {
+          setArtworks([...artworks, response.data]);
+          setIsModalOpen(false);
+          setFormData({
+            title: "",
+            description: "",
+            price: "",
+            image: null,
+            artist: "",
+            exhibition: "",
+            category: "",
+            medium: "",
+            dimensions: {
+              height: "",
+              width: "",
+              unit: "cm",
+            },
+            year: "",
+            status: "available",
+            tags: [],
+          });
+        }
+      } else {
+        // If no image, send as regular JSON
+        const response = await api.post("/artworks", artworkData);
+
+        if (response.data) {
+          setArtworks([...artworks, response.data]);
+          setIsModalOpen(false);
+          setFormData({
+            title: "",
+            description: "",
+            price: "",
+            image: null,
+            artist: "",
+            exhibition: "",
+            category: "",
+            medium: "",
+            dimensions: {
+              height: "",
+              width: "",
+              unit: "cm",
+            },
+            year: "",
+            status: "available",
+            tags: [],
+          });
+        }
+      }
     } catch (err) {
-      setError(err.message);
+      console.error("Error adding artwork:", err);
+      setError(
+        err.response?.data?.message ||
+          "Failed to add artwork. Please check all required fields."
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -91,12 +173,7 @@ const Artworks = () => {
     setEditingArtwork(artwork);
     setFormData({
       ...artwork,
-      artistId: artwork.artist._id,
-      dimensions: artwork.dimensions || {
-        height: "",
-        width: "",
-        unit: "cm",
-      },
+      artist: artwork.artist._id,
     });
     setIsModalOpen(true);
   };
@@ -136,6 +213,13 @@ const Artworks = () => {
     }
   };
 
+  const findExhibitionForArtwork = (artworkId) => {
+    const exhibition = exhibitions.find((exhibition) =>
+      exhibition.artworks.some((art) => art._id === artworkId)
+    );
+    return exhibition?._id;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -167,20 +251,34 @@ const Artworks = () => {
           {artworks.map((artwork) => (
             <div
               key={artwork._id}
-              className="bg-white rounded-lg shadow-lg overflow-hidden"
+              className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
             >
               {artwork.imageUrl && (
-                <img
-                  src={artwork.imageUrl}
-                  alt={artwork.title}
-                  className="w-full h-48 object-cover"
-                />
+                <div className="relative">
+                  <img
+                    src={artwork.imageUrl}
+                    alt={artwork.title}
+                    className="w-full h-48 object-cover"
+                  />
+                  {artwork.status === "sold" && (
+                    <div className="absolute top-2 right-2 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                      Sold
+                    </div>
+                  )}
+                  {artwork.status === "exhibition" && (
+                    <div className="absolute top-2 right-2 bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                      In Exhibition
+                    </div>
+                  )}
+                </div>
               )}
               <div className="p-6">
                 <h3 className="text-xl font-semibold text-gray-900">
                   {artwork.title}
                 </h3>
-                <p className="mt-2 text-gray-600">{artwork.description}</p>
+                <p className="mt-2 text-gray-600 line-clamp-2">
+                  {artwork.description}
+                </p>
                 <div className="mt-4 space-y-2">
                   <p className="text-sm text-gray-500">
                     <span className="font-medium">Artist:</span>{" "}
@@ -188,8 +286,22 @@ const Artworks = () => {
                   </p>
                   <p className="text-sm text-gray-500">
                     <span className="font-medium">Exhibition:</span>{" "}
-                    {exhibitions.find((e) => e.id === artwork.exhibitionId)
-                      ?.title || "Not in exhibition"}
+                    {artwork.status === "exhibition" ? (
+                      <Link
+                        to={`/exhibitions/${findExhibitionForArtwork(
+                          artwork._id
+                        )}`}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        {exhibitions.find((exhibition) =>
+                          exhibition.artworks.some(
+                            (art) => art._id === artwork._id
+                          )
+                        )?.title || "Unknown Exhibition"}
+                      </Link>
+                    ) : (
+                      "Not in exhibition"
+                    )}
                   </p>
                   <p className="text-sm text-gray-500">
                     <span className="font-medium">Category:</span>{" "}
@@ -218,7 +330,9 @@ const Artworks = () => {
                       className={`capitalize ${
                         artwork.status === "available"
                           ? "text-green-600"
-                          : "text-red-600"
+                          : artwork.status === "sold"
+                          ? "text-red-600"
+                          : "text-blue-600"
                       }`}
                     >
                       {artwork.status}
@@ -237,30 +351,39 @@ const Artworks = () => {
                     </div>
                   )}
                 </div>
-                <div className="mt-6 bg-gray-100 py-2 px-2 rounded-xl  flex   justify-evenly">
-                  {artwork.status !== "sold" && (
-                    <>
-                      <Link
-                        to={`/purchase/${artwork._id}`}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-                      >
-                        Purchase
-                      </Link>
-
-                      <button
-                        onClick={() => handleEdit(artwork)}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        Edit
-                      </button>
-                    </>
+                <div className="mt-6 flex justify-between items-center">
+                  {artwork.status === "available" && (
+                    <Link
+                      to={`/purchase/${artwork._id}`}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      Purchase
+                    </Link>
                   )}
-                  <button
-                    onClick={() => handleDelete(artwork._id)}
-                    className="text-white bg-red-600 hover:bg-red-800 rounded py-2 px-3"
-                  >
-                    Delete
-                  </button>
+                  {artwork.status === "exhibition" && (
+                    <Link
+                      to={`/exhibitions/${findExhibitionForArtwork(
+                        artwork._id
+                      )}`}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      View Exhibition
+                    </Link>
+                  )}
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleEdit(artwork)}
+                      className="text-blue-600 hover:text-blue-800 transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(artwork._id)}
+                      className="text-red-600 hover:text-red-800 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -277,10 +400,11 @@ const Artworks = () => {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Title
+                      Title *
                     </label>
                     <input
                       type="text"
+                      name="title"
                       value={formData.title}
                       onChange={(e) =>
                         setFormData({ ...formData, title: e.target.value })
@@ -291,9 +415,10 @@ const Artworks = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Description
+                      Description *
                     </label>
                     <textarea
+                      name="description"
                       value={formData.description}
                       onChange={(e) =>
                         setFormData({
@@ -308,45 +433,69 @@ const Artworks = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Artist
+                      Artist *
                     </label>
                     <select
-                      value={formData.artistId}
+                      value={formData.artist}
                       onChange={(e) =>
-                        setFormData({ ...formData, artistId: e.target.value })
+                        setFormData({ ...formData, artist: e.target.value })
                       }
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       required
                     >
                       <option value="">Select an artist</option>
                       {artists.map((artist) => (
-                        <option key={artist.id} value={artist.id}>
+                        <option key={artist._id} value={artist._id}>
                           {artist.name}
                         </option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Exhibition
+                    <label
+                      htmlFor="exhibition"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Exhibition (Optional)
                     </label>
-                    <select
-                      value={formData.exhibitionId}
+                    <div className="mt-1">
+                      <select
+                        id="exhibition"
+                        name="exhibition"
+                        value={formData.exhibition}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            exhibition: e.target.value,
+                          })
+                        }
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      >
+                        <option value="">
+                          Select an exhibition (optional)
+                        </option>
+                        {exhibitions.map((exhibition) => (
+                          <option key={exhibition._id} value={exhibition._id}>
+                            {exhibition.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Category *
+                    </label>
+                    <input
+                      type="text"
+                      name="category"
+                      value={formData.category}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          exhibitionId: e.target.value,
-                        })
+                        setFormData({ ...formData, category: e.target.value })
                       }
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    >
-                      <option value="">Select an exhibition (optional)</option>
-                      {exhibitions.map((exhibition) => (
-                        <option key={exhibition.id} value={exhibition.id}>
-                          {exhibition.title}
-                        </option>
-                      ))}
-                    </select>
+                      required
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
@@ -458,10 +607,11 @@ const Artworks = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Price
+                      Price *
                     </label>
                     <input
                       type="number"
+                      name="price"
                       value={formData.price}
                       onChange={(e) =>
                         setFormData({ ...formData, price: e.target.value })
@@ -472,65 +622,15 @@ const Artworks = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Image URL
+                      Image
                     </label>
                     <input
-                      type="url"
-                      value={formData.imageUrl}
-                      onChange={(e) =>
-                        setFormData({ ...formData, imageUrl: e.target.value })
-                      }
+                      type="file"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        setFormData({ ...formData, image: file });
+                      }}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Category
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.category}
-                      onChange={(e) =>
-                        setFormData({ ...formData, category: e.target.value })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Status
-                    </label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) =>
-                        setFormData({ ...formData, status: e.target.value })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    >
-                      <option value="available">Available</option>
-                      <option value="sold">Sold</option>
-                      <option value="reserved">Reserved</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Tags (comma-separated)
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.tags.join(", ")}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          tags: e.target.value
-                            .split(",")
-                            .map((tag) => tag.trim())
-                            .filter((tag) => tag),
-                        })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      placeholder="e.g., modern, abstract, landscape"
                     />
                   </div>
                   <div className="flex justify-end space-x-3 mt-6">
@@ -542,9 +642,11 @@ const Artworks = () => {
                         setFormData({
                           title: "",
                           description: "",
-                          artistId: "",
-                          exhibitionId: "",
                           price: "",
+                          image: null,
+                          artist: "",
+                          exhibition: "",
+                          category: "",
                           medium: "",
                           dimensions: {
                             height: "",
@@ -552,8 +654,6 @@ const Artworks = () => {
                             unit: "cm",
                           },
                           year: "",
-                          imageUrl: "",
-                          category: "",
                           status: "available",
                           tags: [],
                         });

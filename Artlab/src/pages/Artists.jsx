@@ -16,6 +16,7 @@ const Artists = () => {
     phone: "",
     specialization: "",
     website: "",
+    password: "",
   });
 
   useEffect(() => {
@@ -35,14 +36,45 @@ const Artists = () => {
   };
 
   const handleSubmit = async (e) => {
-    console.log(formData);
     e.preventDefault();
+    setError("");
+    setLoading(true);
+
     try {
+      const artistData = {
+        name: formData.name.trim(),
+        bio: formData.bio.trim(),
+        contact: {
+          email: formData.email.trim(),
+          phone: formData.phone.trim(),
+          website: formData.website.trim(),
+        },
+        specialization: formData.specialization
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s),
+        password: formData.password.trim(),
+      };
+
       if (editingArtist) {
-        await api.put(`/artists/${editingArtist._id}`, formData);
+        const response = await api.put(
+          `/artists/${editingArtist._id}`,
+          artistData
+        );
+        if (response.data) {
+          setArtists(
+            artists.map((artist) =>
+              artist._id === editingArtist._id ? response.data : artist
+            )
+          );
+        }
       } else {
-        await api.post("/artists", formData);
+        const response = await api.post("/artists", artistData);
+        if (response.data) {
+          setArtists([...artists, response.data]);
+        }
       }
+
       setIsModalOpen(false);
       setEditingArtist(null);
       setFormData({
@@ -52,28 +84,41 @@ const Artists = () => {
         phone: "",
         specialization: "",
         website: "",
+        password: "",
       });
-      fetchArtists();
     } catch (err) {
-      setError(err.message);
+      console.error("Error saving artist:", err);
+      setError(err.response?.data?.message || "Failed to save artist");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleEdit = (artist) => {
     setEditingArtist(artist);
-    setFormData(artist);
+    setFormData({
+      name: artist.name || "",
+      bio: artist.bio || "",
+      email: artist.contact?.email || "",
+      phone: artist.contact?.phone || "",
+      specialization: Array.isArray(artist.specialization)
+        ? artist.specialization.join(", ")
+        : artist.specialization || "",
+      website: artist.contact?.website || "",
+      password: "", // Don't pre-fill password for security
+    });
     setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
-    console.log("Deleting artist with ID:", id);
     if (window.confirm("Are you sure you want to delete this artist?")) {
       try {
         await api.delete(`/artists/${id}`);
         // Update the local state to remove the deleted artist
         setArtists(artists.filter((artist) => artist._id !== id));
       } catch (err) {
-        setError(err.message);
+        console.error("Error deleting artist:", err);
+        setError(err.response?.data?.message || "Failed to delete artist");
       }
     }
   };
@@ -119,17 +164,19 @@ const Artists = () => {
                 <div className="mt-4 space-y-2">
                   <p className="text-sm text-gray-500">
                     <span className="font-medium">Specialization:</span>{" "}
-                    {artist.specialization}
+                    {Array.isArray(artist.specialization)
+                      ? artist.specialization.join(", ")
+                      : artist.specialization}
                   </p>
                   <p className="text-sm text-gray-500">
                     <span className="font-medium">Email:</span>{" "}
-                    {artist.contact.email}
+                    {artist.contact?.email || "Not provided"}
                   </p>
                   <p className="text-sm text-gray-500">
                     <span className="font-medium">Phone:</span>{" "}
-                    {artist.contact.phone}
+                    {artist.contact?.phone || "Not provided"}
                   </p>
-                  {artist.website && (
+                  {artist.contact?.website && (
                     <p className="text-sm text-gray-500">
                       <span className="font-medium">Website:</span>{" "}
                       <a
@@ -224,7 +271,6 @@ const Artists = () => {
                         setFormData({ ...formData, phone: e.target.value })
                       }
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      required
                     />
                   </div>
                   <div>
@@ -257,6 +303,27 @@ const Artists = () => {
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     />
                   </div>
+                  <div>
+                    <label
+                      htmlFor="password"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Password
+                    </label>
+                    <div className="mt-1">
+                      <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        required
+                        value={formData.password}
+                        onChange={(e) =>
+                          setFormData({ ...formData, password: e.target.value })
+                        }
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      />
+                    </div>
+                  </div>
                   <div className="flex justify-end space-x-3 mt-6">
                     <button
                       type="button"
@@ -270,6 +337,7 @@ const Artists = () => {
                           phone: "",
                           specialization: "",
                           website: "",
+                          password: "",
                         });
                       }}
                       className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"

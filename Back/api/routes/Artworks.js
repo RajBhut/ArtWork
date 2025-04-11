@@ -40,6 +40,7 @@ router.get("/:id", async (req, res) => {
 router.post("/", auth, async (req, res) => {
   try {
     const { title, description, price, imageUrl, category } = req.body;
+
     const artist = req.user.id;
     const artwork = new Artwork({
       title,
