@@ -148,20 +148,25 @@ const chartOptions = {
 const Dashboard = () => {
   const { user } = useAuth();
   const isMounted = useRef(true);
-  const [stats, setStats] = useState(dummyStats);
+  const [stats, setStats] = useState({
+    artworks: 0,
+    artists: 0,
+    exhibitions: 0,
+    sales: 0,
+    revenue: 0,
+  });
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dateRange, setDateRange] = useState("week");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [isUsingDummyData, setIsUsingDummyData] = useState(false);
 
   const [salesData, setSalesData] = useState({
-    labels: dummySalesData.labels,
+    labels: [],
     datasets: [
       {
         label: "Sales",
-        data: dummySalesData.values,
+        data: [],
         borderColor: "rgb(59, 130, 246)",
         tension: 0.1,
         fill: false,
@@ -176,40 +181,31 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        setIsUsingDummyData(false);
         setError(null);
 
         const [statsRes, activityRes, salesRes] = await Promise.all([
           api.get("/dashboard/stats", {
             signal: controller.signal,
-            timeout: 5000,
           }),
           api.get("/dashboard/activity", {
             signal: controller.signal,
-            timeout: 5000,
           }),
           api.get(`/dashboard/sales-chart?range=${dateRange}`, {
             signal: controller.signal,
-            timeout: 5000,
           }),
         ]);
 
         if (!isMounted.current) return;
 
-        if (statsRes.data && typeof statsRes.data === "object") {
-          setStats({
-            ...dummyStats,
-            ...statsRes.data,
-          });
+        if (statsRes.data) {
+          setStats(statsRes.data);
         }
 
-        if (Array.isArray(activityRes.data)) {
-          setRecentActivity(
-            activityRes.data.length > 0 ? activityRes.data : dummyActivity
-          );
+        if (activityRes.data) {
+          setRecentActivity(activityRes.data);
         }
 
-        if (salesRes.data?.labels && Array.isArray(salesRes.data.values)) {
+        if (salesRes.data) {
           setSalesData({
             labels: salesRes.data.labels,
             datasets: [
@@ -225,16 +221,8 @@ const Dashboard = () => {
         }
       } catch (err) {
         if (!isMounted.current) return;
-
-        if (err.name === "AbortError" || err.name === "CanceledError") {
-          console.log("Request was canceled:", err.message);
-          return;
-        }
-
         console.error("Dashboard data fetch error:", err);
         setError(err.message);
-        setIsUsingDummyData(true);
-        setRecentActivity(dummyActivity);
       } finally {
         if (isMounted.current) {
           setLoading(false);
@@ -278,56 +266,6 @@ const Dashboard = () => {
     }
   };
 
-  const renderActivityItem = (activity) => (
-    <div key={activity.id} className="p-6 hover:bg-gray-50 transition-colors">
-      <div className="flex items-center space-x-4">
-        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
-          <img
-            src={activity.image}
-            alt={activity.title}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = "/images/fallback-image.jpg";
-            }}
-          />
-        </div>
-        <div className="flex-1">
-          <h3 className="text-sm font-medium text-gray-900">
-            {activity.title} by {activity.artist}
-          </h3>
-          <p className="text-sm text-gray-500">
-            {activity.type === "sale" &&
-              `Sold for ₹${activity.price?.toLocaleString() || 0}`}
-            {activity.type === "exhibition" && "New exhibition opened"}
-            {activity.type === "new_artwork" &&
-              `New artwork added - ₹${activity.price?.toLocaleString() || 0}`}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
-            {new Date(activity.date).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button className="text-gray-400 hover:text-blue-600 transition-colors">
-            <span className="sr-only">View details</span>
-            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-              <path
-                fillRule="evenodd"
-                d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -337,33 +275,8 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen font-mono bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        {isUsingDummyData && (
-          <div className="mb-4 bg-yellow-50 border-l-4 border-yellow-400 p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-yellow-400"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-yellow-700">
-                  Currently showing sample data. Unable to fetch real-time data.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
@@ -451,7 +364,50 @@ const Dashboard = () => {
             </div>
             <div className="divide-y divide-gray-200 max-h-[400px] overflow-y-auto">
               {recentActivity.length > 0 ? (
-                recentActivity.map(renderActivityItem)
+                recentActivity.map((activity) => (
+                  <div
+                    key={activity.id}
+                    className="p-6 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
+                        <img
+                          src={activity.image}
+                          alt={activity.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "/images/fallback-image.jpg";
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-gray-900">
+                          {activity.title} by {activity.artist}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {activity.type === "sale" &&
+                            `Sold for ₹${
+                              activity.price?.toLocaleString() || 0
+                            }`}
+                          {activity.type === "exhibition" &&
+                            "New exhibition opened"}
+                          {activity.type === "new_artwork" &&
+                            `New artwork added - ₹${
+                              activity.price?.toLocaleString() || 0
+                            }`}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(activity.date).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
               ) : (
                 <div className="p-6 text-center text-gray-500">
                   No recent activity to display

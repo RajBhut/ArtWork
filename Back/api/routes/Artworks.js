@@ -39,7 +39,8 @@ router.get("/:id", async (req, res) => {
 // @access  Private
 router.post("/", auth, async (req, res) => {
   try {
-    const { title, artist, description, price, imageUrl, category } = req.body;
+    const { title, description, price, imageUrl, category } = req.body;
+    const artist = req.user.id;
     const artwork = new Artwork({
       title,
       artist,

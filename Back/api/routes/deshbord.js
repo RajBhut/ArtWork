@@ -84,43 +84,45 @@ router.get("/activity", auth, async (req, res) => {
       .sort({ startDate: -1 })
       .limit(3);
 
-    // Combine and format activities
     const activities = [
-      ...recentSales.map((sale) => ({
-        id: sale._id,
-        type: "sale",
-        title: sale.artwork.title,
-        artist: sale.artwork.artist.name,
-        price: sale.price,
-        date: sale.date,
-        image: sale.artwork.image || "/images/art1.jpg",
-      })),
-      ...recentArtworks.map((artwork) => ({
-        id: artwork._id,
-        type: "new_artwork",
-        title: artwork.title,
-        artist: artwork.artist.name,
-        price: artwork.price,
-        date: artwork.createdAt,
-        image: artwork.image || "/images/art2.jpg",
-      })),
-      ...recentExhibitions.map((exhibition) => ({
-        id: exhibition._id,
-        type: "exhibition",
-        title: exhibition.title,
-        artist: "Various Artists",
-        date: exhibition.startDate,
-        image: exhibition.image || "/images/exhibition1.jpg",
-      })),
+      ...recentSales
+        .filter((sale) => sale.artwork && sale.artwork.title) // Filter out null/undefined artworks
+        .map((sale) => ({
+          id: sale._id,
+          type: "sale",
+          title: sale.artwork?.title || "Untitled Artwork",
+          artist: sale.artwork?.artist?.name || "Unknown Artist",
+          price: sale.price || 0,
+          date: sale.date || new Date(),
+          image: sale.artwork?.image || "/images/fallback-image.jpg",
+        })),
+      ...recentArtworks
+        .filter((artwork) => artwork.title) // Filter out null/undefined artworks
+        .map((artwork) => ({
+          id: artwork._id,
+          type: "new_artwork",
+          title: artwork.title || "Untitled Artwork",
+          artist: artwork.artist?.name || "Unknown Artist",
+          price: artwork.price || 0,
+          date: artwork.createdAt || new Date(),
+          image: artwork.image || "/images/fallback-image.jpg",
+        })),
+      ...recentExhibitions
+        .filter((exhibition) => exhibition.title) // Filter out null/undefined exhibitions
+        .map((exhibition) => ({
+          id: exhibition._id,
+          type: "exhibition",
+          title: exhibition.title || "Untitled Exhibition",
+          artist: "Various Artists",
+          date: exhibition.startDate || new Date(),
+          image: exhibition.imageUrl || "/images/fallback-image.jpg",
+        })),
     ];
 
-    // Sort by date (newest first)
+    // Sort activities by date
     activities.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    // Limit to top 10
-    const limitedActivities = activities.slice(0, 10);
-
-    res.json(limitedActivities);
+    res.json(activities);
   } catch (err) {
     console.error("Dashboard activity error:", err);
     res.status(500).json({ message: "Server Error" });
@@ -154,12 +156,10 @@ router.get("/sales-chart", auth, async (req, res) => {
         break;
 
       case "month":
-        // Last 30 days
         startDate.setDate(startDate.getDate() - 30);
         dateFormat = "%d";
         groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$date" } };
 
-        // Generate labels for last 30 days (grouped by weeks)
         for (let i = 4; i >= 0; i--) {
           const weekNumber = 5 - i;
           labels.push(`Week ${weekNumber}`);
@@ -167,7 +167,6 @@ router.get("/sales-chart", auth, async (req, res) => {
         break;
 
       case "year":
-        // Last 12 months
         startDate.setFullYear(startDate.getFullYear() - 1);
         dateFormat = "%b";
         groupBy = { $dateToString: { format: "%Y-%m", date: "$date" } };
